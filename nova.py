@@ -11,6 +11,14 @@ stocks = [
     "HDFCBANK.NS", "ICICIBANK.NS", "LT.NS"
 ]
 
+# ✅ RSI calculation function
+def calculate_rsi(data, window=14):
+    delta = data.diff()
+    gain = (delta.where(delta > 0, 0)).rolling(window=window).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(window=window).mean()
+    rs = gain / loss
+    return 100 - (100 / (1 + rs))
+
 results = []
 
 for stock in stocks:
@@ -20,10 +28,14 @@ for stock in stocks:
         if data.empty:
             continue
 
+        # Moving Average
         data["MA50"] = data["Close"].rolling(50).mean()
 
-        # Get last valid MA50
-        valid_data = data.dropna(subset=["MA50"])
+        # RSI
+        data["RSI"] = calculate_rsi(data["Close"])
+
+        # Get valid rows
+        valid_data = data.dropna(subset=["MA50", "RSI"])
 
         if valid_data.empty:
             continue
@@ -32,8 +44,12 @@ for stock in stocks:
 
         close_price = float(latest["Close"])
         ma50 = float(latest["MA50"])
+        rsi = float(latest["RSI"])
 
-        if close_price > ma50:
+        # ✅ Improved logic
+        if close_price > ma50 and rsi < 60:
+            signal = "STRONG BUY ✅✅"
+        elif close_price > ma50 and rsi < 75:
             signal = "BUY ✅"
         else:
             signal = "AVOID ❌"
@@ -41,6 +57,7 @@ for stock in stocks:
         results.append({
             "Stock": stock.replace(".NS", ""),
             "Price": round(close_price, 2),
+            "RSI": round(rsi, 2),
             "Signal": signal
         })
 
@@ -52,16 +69,25 @@ df = pd.DataFrame(results)
 st.subheader("📊 Recommendations")
 
 if df.empty:
-    st.warning("No valid signals right now. Market may be sideways.")
+    st.warning("No strong signals right now. Market may be weak or sideways.")
 else:
     st.dataframe(df, use_container_width=True)
 
     st.subheader("🔥 Top Picks")
 
-    buy_stocks = df[df["Signal"] == "BUY ✅"]
+    strong_buys = df[df["Signal"] == "STRONG BUY ✅✅"]
 
-    if not buy_stocks.empty:
-        for _, row in buy_stocks.iterrows():
-            st.write(f"✅ {row['Stock']} at ₹{row['Price']}")
-    else:
-        st.info("No BUY signals today.")
+    buys = df[df["Signal"] == "BUY ✅"]
+
+    if not strong_buys.empty:
+        st.success("✅ STRONG BUY Opportunities")
+        for _, row in strong_buys.iterrows():
+            st.write(f"🔥 {row['Stock']} | ₹{row['Price']} | RSI: {row['RSI']}")
+
+    if not buys.empty:
+        st.info("✅ BUY Opportunities")
+        for _, row in buys.iterrows():
+            st.write(f"✅ {row['Stock']} | ₹{row['Price']}")
+
+    if strong_buys.empty and buys.empty:
+        st.warning("No BUY signals today.")
