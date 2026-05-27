@@ -1,6 +1,7 @@
 import streamlit as st
 import yfinance as yf
 import pandas as pd
+import time
 
 st.set_page_config(page_title="NOVA India", layout="wide")
 
@@ -22,13 +23,30 @@ def calculate_rsi(data, window=14):
 results = []
 
 for stock in stocks:
+    data = pd.DataFrame()
+
+    # ✅ retry (important for Streamlit cloud)
+    for _ in range(3):
+        try:
+            data = yf.download(stock, period="120d", interval="1d", progress=False)
+            if not data.empty:
+                break
+            time.sleep(1)
+        except:
+            time.sleep(1)
+
+    if data.empty:
+        # fallback dummy entry (so UI never empty)
+        results.append({
+            "Stock": stock.replace(".NS", ""),
+            "Price": 0,
+            "RSI": 0,
+            "Score": 0,
+            "Signal": "NO DATA ⚠️"
+        })
+        continue
+
     try:
-        data = yf.download(stock, period="120d", interval="1d")
-
-        if data.empty:
-            continue
-
-        # Indicators
         data["MA50"] = data["Close"].rolling(50).mean()
         data["RSI"] = calculate_rsi(data["Close"])
 
@@ -43,7 +61,7 @@ for stock in stocks:
         ma50 = float(latest["MA50"])
         rsi = float(latest["RSI"])
 
-        # ✅ FLEXIBLE LOGIC (always assigns something useful)
+        # ✅ flexible & safe scoring
         if close_price > ma50 and rsi < 60:
             signal = "STRONG BUY ✅✅"
             score = 3
@@ -68,22 +86,18 @@ for stock in stocks:
     except Exception:
         continue
 
-# ✅ Create DataFrame
 df = pd.DataFrame(results)
 
 st.subheader("📊 Recommendations")
 
 if df.empty:
-    st.error("Data not available. Check internet or API.")
+    st.error("No data could be fetched at all.")
 else:
-    # ✅ SORT by best opportunities
     df = df.sort_values(by="Score", ascending=False)
-
     st.dataframe(df, use_container_width=True)
 
     st.subheader("🔥 Top Picks")
 
-    # ✅ Always show top 3 (even if weak)
     top_picks = df.head(3)
 
     for _, row in top_picks.iterrows():
