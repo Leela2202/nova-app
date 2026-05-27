@@ -15,19 +15,20 @@ results = []
 
 for stock in stocks:
     try:
-        data = yf.download(stock, period="90d", interval="1d")
-
-        # Skip if no data
-        if data.empty or len(data) < 50:
-            continue
-
-        data["MA50"] = data["Close"].rolling(50).mean()
-        data = data.dropna()
+        data = yf.download(stock, period="120d", interval="1d")
 
         if data.empty:
             continue
 
-        latest = data.iloc[-1]
+        data["MA50"] = data["Close"].rolling(50).mean()
+
+        # Get last valid MA50
+        valid_data = data.dropna(subset=["MA50"])
+
+        if valid_data.empty:
+            continue
+
+        latest = valid_data.iloc[-1]
 
         close_price = float(latest["Close"])
         ma50 = float(latest["MA50"])
@@ -46,14 +47,12 @@ for stock in stocks:
     except Exception:
         continue
 
-# ✅ Create dataframe safely
 df = pd.DataFrame(results)
 
 st.subheader("📊 Recommendations")
 
-# ✅ Handle empty case safely
 if df.empty:
-    st.warning("No data available. Try again later.")
+    st.warning("No valid signals right now. Market may be sideways.")
 else:
     st.dataframe(df, use_container_width=True)
 
