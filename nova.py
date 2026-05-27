@@ -6,7 +6,6 @@ st.set_page_config(page_title="NOVA India", layout="wide")
 
 st.title("🇮🇳 NOVA - Stock Recommender")
 
-# List of stocks
 stocks = [
     "RELIANCE.NS", "TCS.NS", "INFY.NS",
     "HDFCBANK.NS", "ICICIBANK.NS", "LT.NS"
@@ -18,23 +17,21 @@ for stock in stocks:
     try:
         data = yf.download(stock, period="90d", interval="1d")
 
-        # Skip if insufficient data
+        # Skip if no data
         if data.empty or len(data) < 50:
             continue
 
-        # Calculate Moving Average
         data["MA50"] = data["Close"].rolling(50).mean()
-
-        # Drop NaN rows
         data = data.dropna()
 
-        # Get latest valid row
+        if data.empty:
+            continue
+
         latest = data.iloc[-1]
 
         close_price = float(latest["Close"])
         ma50 = float(latest["MA50"])
 
-        # Safe comparison
         if close_price > ma50:
             signal = "BUY ✅"
         else:
@@ -46,23 +43,26 @@ for stock in stocks:
             "Signal": signal
         })
 
-    except Exception as e:
-        # Skip problematic stock instead of crashing
+    except Exception:
         continue
 
-# Create dataframe
+# ✅ Create dataframe safely
 df = pd.DataFrame(results)
 
 st.subheader("📊 Recommendations")
-st.dataframe(df, use_container_width=True)
 
-# Filter BUY signals
-st.subheader("🔥 Top Picks")
-
-buy_stocks = df[df["Signal"] == "BUY ✅"]
-
-if not buy_stocks.empty:
-    for _, row in buy_stocks.iterrows():
-        st.write(f"✅ {row['Stock']} at ₹{row['Price']}")
+# ✅ Handle empty case safely
+if df.empty:
+    st.warning("No data available. Try again later.")
 else:
-    st.write("No strong buy signals today.")
+    st.dataframe(df, use_container_width=True)
+
+    st.subheader("🔥 Top Picks")
+
+    buy_stocks = df[df["Signal"] == "BUY ✅"]
+
+    if not buy_stocks.empty:
+        for _, row in buy_stocks.iterrows():
+            st.write(f"✅ {row['Stock']} at ₹{row['Price']}")
+    else:
+        st.info("No BUY signals today.")
