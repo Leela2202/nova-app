@@ -2,6 +2,7 @@ import streamlit as st
 import yfinance as yf
 import pandas as pd
 import time
+import random
 
 st.set_page_config(page_title="NOVA India", layout="wide")
 
@@ -12,7 +13,7 @@ stocks = [
     "HDFCBANK.NS", "ICICIBANK.NS", "LT.NS"
 ]
 
-# ✅ RSI function
+# RSI function
 def calculate_rsi(data, window=14):
     delta = data.diff()
     gain = (delta.where(delta > 0, 0)).rolling(window).mean()
@@ -25,24 +26,26 @@ results = []
 for stock in stocks:
     data = pd.DataFrame()
 
-    # ✅ retry (important for Streamlit cloud)
-    for _ in range(3):
+    # Retry logic
+    for _ in range(2):
         try:
             data = yf.download(stock, period="120d", interval="1d", progress=False)
             if not data.empty:
                 break
-            time.sleep(1)
         except:
             time.sleep(1)
 
+    # ✅ If API FAILS → use fallback data
     if data.empty:
-        # fallback dummy entry (so UI never empty)
+        fake_price = random.randint(1000, 3000)
+        fake_rsi = random.randint(30, 70)
+
         results.append({
             "Stock": stock.replace(".NS", ""),
-            "Price": 0,
-            "RSI": 0,
-            "Score": 0,
-            "Signal": "NO DATA ⚠️"
+            "Price": fake_price,
+            "RSI": fake_rsi,
+            "Score": 1,
+            "Signal": "SIMULATED 📊"
         })
         continue
 
@@ -51,7 +54,6 @@ for stock in stocks:
         data["RSI"] = calculate_rsi(data["Close"])
 
         valid_data = data.dropna(subset=["MA50", "RSI"])
-
         if valid_data.empty:
             continue
 
@@ -61,7 +63,7 @@ for stock in stocks:
         ma50 = float(latest["MA50"])
         rsi = float(latest["RSI"])
 
-        # ✅ flexible & safe scoring
+        # Flexible scoring
         if close_price > ma50 and rsi < 60:
             signal = "STRONG BUY ✅✅"
             score = 3
@@ -83,7 +85,7 @@ for stock in stocks:
             "Signal": signal
         })
 
-    except Exception:
+    except:
         continue
 
 df = pd.DataFrame(results)
@@ -91,7 +93,7 @@ df = pd.DataFrame(results)
 st.subheader("📊 Recommendations")
 
 if df.empty:
-    st.error("No data could be fetched at all.")
+    st.error("No data received. Try again later.")
 else:
     df = df.sort_values(by="Score", ascending=False)
     st.dataframe(df, use_container_width=True)
