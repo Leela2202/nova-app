@@ -9,8 +9,10 @@ st.set_page_config(page_title="NOVA India", layout="wide")
 st.title("🇮🇳 NOVA - Stock Recommender")
 
 stocks = [
-    "RELIANCE.NS", "TCS.NS", "INFY.NS",
-    "HDFCBANK.NS", "ICICIBANK.NS", "LT.NS"
+    "RELIANCE.NS", "TCS.NS", "INFY.NS", "HDFCBANK.NS",
+    "ICICIBANK.NS", "SBIN.NS", "ITC.NS", "LT.NS",
+    "AXISBANK.NS", "KOTAKBANK.NS", "BAJFINANCE.NS",
+    "ASIANPAINT.NS", "MARUTI.NS", "SUNPHARMA.NS"
 ]
 
 # RSI function
