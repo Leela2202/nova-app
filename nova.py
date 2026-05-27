@@ -11,11 +11,11 @@ stocks = [
     "HDFCBANK.NS", "ICICIBANK.NS", "LT.NS"
 ]
 
-# ✅ RSI calculation function
+# ✅ RSI function
 def calculate_rsi(data, window=14):
     delta = data.diff()
-    gain = (delta.where(delta > 0, 0)).rolling(window=window).mean()
-    loss = (-delta.where(delta < 0, 0)).rolling(window=window).mean()
+    gain = (delta.where(delta > 0, 0)).rolling(window).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(window).mean()
     rs = gain / loss
     return 100 - (100 / (1 + rs))
 
@@ -28,13 +28,10 @@ for stock in stocks:
         if data.empty:
             continue
 
-        # Moving Average
+        # Indicators
         data["MA50"] = data["Close"].rolling(50).mean()
-
-        # RSI
         data["RSI"] = calculate_rsi(data["Close"])
 
-        # Get valid rows
         valid_data = data.dropna(subset=["MA50", "RSI"])
 
         if valid_data.empty:
@@ -46,48 +43,53 @@ for stock in stocks:
         ma50 = float(latest["MA50"])
         rsi = float(latest["RSI"])
 
-        # ✅ Improved logic
+        # ✅ FLEXIBLE LOGIC (always assigns something useful)
         if close_price > ma50 and rsi < 60:
             signal = "STRONG BUY ✅✅"
-        elif close_price > ma50 and rsi < 75:
+            score = 3
+        elif close_price > ma50:
             signal = "BUY ✅"
+            score = 2
+        elif rsi < 40:
+            signal = "REVERSAL ⚠️"
+            score = 1
         else:
             signal = "AVOID ❌"
+            score = 0
 
         results.append({
             "Stock": stock.replace(".NS", ""),
             "Price": round(close_price, 2),
             "RSI": round(rsi, 2),
+            "Score": score,
             "Signal": signal
         })
 
     except Exception:
         continue
 
+# ✅ Create DataFrame
 df = pd.DataFrame(results)
 
 st.subheader("📊 Recommendations")
 
 if df.empty:
-    st.warning("No strong signals right now. Market may be weak or sideways.")
+    st.error("Data not available. Check internet or API.")
 else:
+    # ✅ SORT by best opportunities
+    df = df.sort_values(by="Score", ascending=False)
+
     st.dataframe(df, use_container_width=True)
 
     st.subheader("🔥 Top Picks")
 
-    strong_buys = df[df["Signal"] == "STRONG BUY ✅✅"]
+    # ✅ Always show top 3 (even if weak)
+    top_picks = df.head(3)
 
-    buys = df[df["Signal"] == "BUY ✅"]
-
-    if not strong_buys.empty:
-        st.success("✅ STRONG BUY Opportunities")
-        for _, row in strong_buys.iterrows():
-            st.write(f"🔥 {row['Stock']} | ₹{row['Price']} | RSI: {row['RSI']}")
-
-    if not buys.empty:
-        st.info("✅ BUY Opportunities")
-        for _, row in buys.iterrows():
-            st.write(f"✅ {row['Stock']} | ₹{row['Price']}")
-
-    if strong_buys.empty and buys.empty:
-        st.warning("No BUY signals today.")
+    for _, row in top_picks.iterrows():
+        st.write(f"""
+        **{row['Stock']}**
+        - Price: ₹{row['Price']}
+        - RSI: {row['RSI']}
+        - Signal: {row['Signal']}
+        """)
